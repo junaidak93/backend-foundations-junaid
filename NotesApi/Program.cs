@@ -1,62 +1,76 @@
-var notes = new List<NoteDto>();
-var nextId = 1;
+using Microsoft.EntityFrameworkCore;
+using NotesApi.Data;
+using NotesApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+//builder.Services.AddOpenApi();
+
+builder.Services.AddDbContext<NotesDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+// if (app.Environment.IsDevelopment())
+// {
+//     app.MapOpenApi();
+// }
 
 app.UseHttpsRedirection();
 
 app.MapGet("/health", () => Results.Json(new { status = "ok" }));
 
-app.MapGet("/notes", () => Results.Ok(notes));
+app.MapGet("/notes", async (NotesDbContext db) => {
+    return await db.Notes.ToListAsync();
+});
 
-app.MapGet("/notes/{id}", (int id) => {
-    var note = notes.FirstOrDefault(x => x.Id == id);
+app.MapGet("/notes/{id}", async (NotesDbContext db, int id) => {
+    var note = await db.Notes.FindAsync(id);
     return note is null ? Results.NotFound() : Results.Ok(note);
 });
 
-app.MapPost("/notes", (NoteDto note) => {
+app.MapPost("/notes", async (NotesDbContext db, Note note) => {
     if (string.IsNullOrWhiteSpace(note.Title)) {
         return Results.BadRequest(new { error = "Title is required" });
     }
 
-    var newNote = note with { Id = nextId++ };
-    notes.Add(newNote);
+    note.CreatedAt = DateTime.UtcNow;
 
-    return Results.Created($"/notes/{newNote.Id}", newNote);
+    db.Notes.Add(note);
+    await db.SaveChangesAsync();
+
+    return Results.Created($"/notes/{note.Id}", note);
 });
 
-app.MapPut("/notes/{id}", (int id, NoteDto note) => {
-    if (string.IsNullOrWhiteSpace(note.Title)) {
+app.MapPut("/notes/{id}", async (NotesDbContext db, int id, Note updated) => {
+    if (string.IsNullOrWhiteSpace(updated.Title)) {
         return Results.BadRequest(new { error = "Title is required" });
     }
 
-    var idx = notes.FindIndex(x => x.Id == id);
-    if (idx == -1) return Results.NotFound();
-
-    notes[idx] = note with { Id = id };
-
-    return Results.Ok(notes[idx]);
-});
-
-app.MapDelete("/notes/{id}", (int id) =>
-{
-    var note = notes.FirstOrDefault(n => n.Id == id);
+    var note = await db.Notes.FindAsync(id);
     if (note is null) return Results.NotFound();
 
-    notes.Remove(note);
+    note.Title = updated.Title;
+    note.Body = updated.Body;
+
+    await db.SaveChangesAsync();
+
+    return Results.Ok(note);
+});
+
+app.MapDelete("/notes/{id}", async (NotesDbContext db, int id) =>
+{
+    var note = await db.Notes.FindAsync(id);
+    if (note is null) return Results.NotFound();
+
+    db.Notes.Remove(note);
+    await db.SaveChangesAsync();
+
     return Results.NoContent();
 });
+
 
 app.Run();
