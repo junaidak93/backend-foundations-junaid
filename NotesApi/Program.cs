@@ -1,3 +1,6 @@
+var notes = new List<NoteDto>();
+var nextId = 1;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -14,30 +17,46 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
 app.MapGet("/health", () => Results.Json(new { status = "ok" }));
 
-app.Run();
+app.MapGet("/notes", () => Results.Ok(notes));
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+app.MapGet("/notes/{id}", (int id) => {
+    var note = notes.FirstOrDefault(x => x.Id == id);
+    return note is null ? Results.NotFound() : Results.Ok(note);
+});
+
+app.MapPost("/notes", (NoteDto note) => {
+    if (string.IsNullOrWhiteSpace(note.Title)) {
+        return Results.BadRequest(new { error = "Title is required" });
+    }
+
+    var newNote = note with { Id = nextId++ };
+    notes.Add(newNote);
+
+    return Results.Created($"/notes/{newNote.Id}", newNote);
+});
+
+app.MapPut("/notes/{id}", (int id, NoteDto note) => {
+    if (string.IsNullOrWhiteSpace(note.Title)) {
+        return Results.BadRequest(new { error = "Title is required" });
+    }
+
+    var idx = notes.FindIndex(x => x.Id == id);
+    if (idx == -1) return Results.NotFound();
+
+    notes[idx] = note with { Id = id };
+
+    return Results.Ok(notes[idx]);
+});
+
+app.MapDelete("/notes/{id}", (int id) =>
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+    var note = notes.FirstOrDefault(n => n.Id == id);
+    if (note is null) return Results.NotFound();
+
+    notes.Remove(note);
+    return Results.NoContent();
+});
+
+app.Run();
