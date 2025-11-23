@@ -1,20 +1,47 @@
 using Microsoft.EntityFrameworkCore;
 using NotesApi.Data;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+byte[] jwtKey = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!);
+string? jwtIssuer = builder.Configuration["Jwt:Issuer"];
+string? jwtAudience = builder.Configuration["Jwt:Audience"];
 
 // Add services to the container.
 builder.Services
     .AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString))
     .AddScoped<INotesRepository, NotesRepository>()
     .AddScoped<INotesService, NotesService>()
+    .AddScoped<IAuthService, AuthService>()
+    .AddScoped<IUserRepository, UserRepository>()
+    .AddScoped<IJwtTokenGenerator, JwtTokenGenerator>()
     .AddControllers();
+
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer("Bearer", options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(jwtKey)
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
 app.MapControllers();
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.Run();
