@@ -3,9 +3,9 @@ using NotesApi.Models;
 
 namespace NotesApi.Data;
 
-public class NotesDbContext : DbContext
+public class AppDbContext : DbContext
 {
-    public NotesDbContext(DbContextOptions<NotesDbContext> options) : base(options)
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
 
