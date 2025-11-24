@@ -2,13 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using NotesApi.Data;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using NotesApi.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
-string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-byte[] jwtKey = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!);
-string? jwtIssuer = builder.Configuration["Jwt:Issuer"];
-string? jwtAudience = builder.Configuration["Jwt:Audience"];
+string? connectionString = builder.Configuration.GetConnectionString(Constants.KEY_CONNECTIONSTRING);
+byte[] jwtKey = Encoding.UTF8.GetBytes(builder.Configuration[Constants.KEY_JWTKEY]!);
+string? jwtIssuer = builder.Configuration[Constants.KEY_JWTISSUER];
+string? jwtAudience = builder.Configuration[Constants.KEY_JWTAUDIENCE];
 
 // Add services to the container.
 builder.Services
@@ -17,6 +18,7 @@ builder.Services
     .AddScoped<INotesService, NotesService>()
     .AddScoped<IAuthService, AuthService>()
     .AddScoped<IUserRepository, UserRepository>()
+    .AddScoped<IRefreshTokenRepository, RefreshTokenRepository>()
     .AddScoped<IJwtTokenGenerator, JwtTokenGenerator>()
     .AddControllers();
 

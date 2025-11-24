@@ -4,34 +4,39 @@ using NotesApi.Models;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 
-public class JwtTokenGenerator : IJwtTokenGenerator
+namespace NotesApi.Helpers;
+
+public class JwtTokenGenerator(IConfiguration config) : IJwtTokenGenerator
 {
-    private readonly IConfiguration _config;
+    private readonly byte[] _jwtKey = Encoding.UTF8.GetBytes(config[Constants.KEY_JWTKEY]!);
+    private readonly string? _jwtIssuer = config[Constants.KEY_JWTISSUER];
+    private readonly string? _jwtAudience = config[Constants.KEY_JWTAUDIENCE];
 
-    public JwtTokenGenerator(IConfiguration config)
-    {
-        _config = config;
-    }
-
-    public string GenerateToken(User user)
+    public string GenerateToken(User user, DateTime expiry)
     {
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.Name, user.Username),
-            new Claim("userId", user.Id.ToString())
+            new(ClaimTypes.Name, user.Username),
+            new(Constants.CLAIM_USERID, user.Id.ToString())
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+        var key = new SymmetricSecurityKey(_jwtKey);
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            issuer: _config["Jwt:Issuer"],
-            audience: _config["Jwt:Audience"],
+            issuer: _jwtIssuer,
+            audience: _jwtAudience,
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(2),
+            expires: expiry,
             signingCredentials: creds
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public string? ReadUserId(string jwtTokenString) 
+    {
+        var jwtSecurityToken = new JwtSecurityTokenHandler().ReadJwtToken(jwtTokenString);
+        return jwtSecurityToken?.Claims?.FirstOrDefault(x => x.Type == Constants.CLAIM_USERID)?.Value;
     }
 }
