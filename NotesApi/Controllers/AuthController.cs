@@ -1,7 +1,4 @@
-using System.Security.Claims;
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
-using NotesApi.Helpers;
 
 [ApiController]
 [Route("auth")]
@@ -26,7 +23,11 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequest req)
     {
-        var userWithToken = await _authService.Login(req.Username, req.Password);
+        // After configuring ForwardedHeaders, this will correctly retrieve the client's IP
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
+        var userAgent = Request.Headers.UserAgent.ToString();
+
+        var userWithToken = await _authService.Login(req.Username, req.Password, ip, userAgent);
         
         if (!userWithToken.HasValue) 
             return Unauthorized();
@@ -38,19 +39,26 @@ public class AuthController : ControllerBase
         });
     }
 
-    [HttpPost("refreshToken")]
+    [HttpPost("refresh-token")]
     public async Task<IActionResult> RefreshToken(string refreshToken)
     {
-        var response = await _authService.RefreshToken(refreshToken);
+        try 
+        {
+            // After configuring ForwardedHeaders, this will correctly retrieve the client's IP
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
+            var userAgent = Request.Headers.UserAgent.ToString();
 
-        if (response.HasValue) {
+            var response = await _authService.RefreshToken(refreshToken, ip, userAgent);
+
             return Ok(new AuthResponse {
                 Username = response.Value.user?.Username ?? "",
                 Token = response.Value.token ?? "",
                 RefreshToken = response.Value.refreshToken ?? ""
             });
+        } 
+        catch (Exception ex) 
+        {
+            return Unauthorized(new { error = ex.Message });
         }
-
-        return BadRequest("Invalid or revoked token");
     }
 }

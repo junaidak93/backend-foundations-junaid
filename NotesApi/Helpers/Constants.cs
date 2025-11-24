@@ -2,6 +2,7 @@ namespace  NotesApi.Helpers;
 
 public static class Constants 
 {
+    public const string BEARER = "Bearer";
     public const string CLAIM_USERID = "userId";
     public const string KEY_CONNECTIONSTRING = "DefaultConnection";
     public const string KEY_JWTKEY = "Jwt:Key";

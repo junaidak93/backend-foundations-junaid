@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
 using NotesApi.Helpers;
 using NotesApi.Models;
@@ -30,7 +31,7 @@ public class AuthService : IAuthService
         return await _repo.CreateAsync(user);
     }
 
-    public async Task<(string? token, string? refreshToken, User? user)?> Login(string username, string password)
+    public async Task<(string? token, string? refreshToken, User? user)?> Login(string username, string password, string ip, string userAgent)
     {
         var user = await _repo.GetByUsernameAsync(username);
 
@@ -41,36 +42,46 @@ public class AuthService : IAuthService
 
         if (result == PasswordVerificationResult.Success)
         {
-            var token = _jwt.GenerateToken(user, DateTime.UtcNow.AddMinutes(15));
-            var refreshToken = _jwt.GenerateToken(user, DateTime.UtcNow.AddDays(30));
-
-            await _refreshTokenRepo.AddTokenAsync(refreshToken, user.Id);
-
+            (string token, string refreshToken) = await CreateTokens(user, ip, userAgent);
             return (token, refreshToken, user);
         }
 
         return null;
     }
 
-    public async Task<(string token, string refreshToken, User? user)?> RefreshToken(string refreshToken)
+    public async Task<(string token, string refreshToken, User? user)?> RefreshToken(string refreshToken, string ip, string userAgent)
     {
         if (int.TryParse(_jwt.ReadUserId(refreshToken) ?? "", out int userId))
         {
-            var user = await _repo.GetByIdAsync(userId);
+            var user = await _repo.GetByIdAsync(userId) ?? throw new ServiceException(ErrorMessages.InvalidUser);
+            string oldHashedToken = refreshToken.ToMD5Hash();
 
-            if (user is null)
-                return null;
-
-            if (await _refreshTokenRepo.DeleteAsync(refreshToken))
+            if (await _refreshTokenRepo.RevokeToken(oldHashedToken, ip, userAgent))
             {
-                var token = _jwt.GenerateToken(user, DateTime.UtcNow.AddMinutes(15));
-                var newRefreshToken = _jwt.GenerateToken(user, DateTime.UtcNow.AddDays(30));
-
-                await _refreshTokenRepo.AddTokenAsync(newRefreshToken, userId);
+                (string token, string newRefreshToken) = await CreateTokens(user, ip, userAgent, oldHashedToken);
                 return (token, newRefreshToken, user);
+            }
+            else
+            {
+                //Revoke all tokens of this user
+                await _refreshTokenRepo.RevokeAllTokens(user.Id, ip);
+                throw new ServiceException(ErrorMessages.AllSessionsKilled);
             }
         }
 
-        return null;
+        throw new ServiceException(ErrorMessages.InvalidToken);
+    }
+
+    private async Task<(string token, string refreshToken)> CreateTokens(User user, string ip, string userAgent, string? oldToken = null)
+    {
+        // Generate Tokens
+        string token = _jwt.GenerateToken(user, DateTime.UtcNow.AddMinutes(15));
+        string refreshToken = _jwt.GenerateToken(user, DateTime.UtcNow.AddDays(30));
+
+        // Add Hashed Refresh Token in DB
+        await _refreshTokenRepo.AddTokenAsync(refreshToken.ToMD5Hash(), user.Id, ip, userAgent, oldToken);
+
+        // Return tokens
+        return (token, refreshToken);
     }
 }

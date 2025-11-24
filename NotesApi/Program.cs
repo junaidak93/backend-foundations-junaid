@@ -13,6 +13,7 @@ string? jwtAudience = builder.Configuration[Constants.KEY_JWTAUDIENCE];
 
 // Add services to the container.
 builder.Services
+    .AddHostedService<TokenCleanupService>()
     .AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString))
     .AddScoped<INotesRepository, NotesRepository>()
     .AddScoped<INotesService, NotesService>()
@@ -22,8 +23,8 @@ builder.Services
     .AddScoped<IJwtTokenGenerator, JwtTokenGenerator>()
     .AddControllers();
 
-builder.Services.AddAuthentication("Bearer")
-    .AddJwtBearer("Bearer", options =>
+builder.Services.AddAuthentication(Constants.BEARER)
+    .AddJwtBearer(Constants.BEARER, options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
