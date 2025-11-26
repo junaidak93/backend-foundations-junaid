@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using NotesApi.Helpers;
 
 [ApiController]
 [Route("auth")]
@@ -31,6 +32,13 @@ public class AuthController : ControllerBase
         
         if (!userWithToken.HasValue) 
             return Unauthorized();
+
+        HttpContext.SetSecureHttpOnlyCookie
+        (
+            Constants.COOKIE_REFRESHTOKEN, 
+            userWithToken.Value.refreshToken ?? "", 
+            30 * 24 * 60
+        );
         
         return Ok(new AuthResponse { 
             Username = userWithToken.Value.user?.Username ?? "", 
@@ -49,6 +57,13 @@ public class AuthController : ControllerBase
             var userAgent = Request.Headers.UserAgent.ToString();
 
             var response = await _authService.RefreshToken(refreshToken, ip, userAgent);
+
+            HttpContext.SetSecureHttpOnlyCookie
+            (
+                Constants.COOKIE_REFRESHTOKEN, 
+                response.Value.refreshToken ?? "", 
+                30 * 24 * 60
+            );
 
             return Ok(new AuthResponse {
                 Username = response.Value.user?.Username ?? "",

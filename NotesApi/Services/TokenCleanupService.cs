@@ -1,14 +1,14 @@
 public class TokenCleanupService : IHostedService, IDisposable
 {
-    private IRefreshTokenRepository _refreshTokenRepository;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<TokenCleanupService> _logger;
     private Timer? _timer = null;
     private int _daysAfterCleanupIsRequired = 10;
 
-    public TokenCleanupService(ILogger<TokenCleanupService> logger, IConfiguration config, IRefreshTokenRepository refreshTokenRepository)
+    public TokenCleanupService(ILogger<TokenCleanupService> logger, IConfiguration config, IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
-        _refreshTokenRepository = refreshTokenRepository;
+        _scopeFactory = scopeFactory;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -22,9 +22,13 @@ public class TokenCleanupService : IHostedService, IDisposable
     {
         _logger.LogInformation($"Deleting expired tokens present in db for >= {_daysAfterCleanupIsRequired} days");
 
-        var allData = await _refreshTokenRepository.GetAllAsync();
-        var filtered = allData.Where(x => (DateTime.UtcNow - x.ExpiresAt).TotalDays >= _daysAfterCleanupIsRequired);
-        await _refreshTokenRepository.DeleteAsync(filtered);
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var _refreshTokenRepository = scope.ServiceProvider.GetRequiredService<IRefreshTokenRepository>();
+            var allData = await _refreshTokenRepository.GetAllAsync();
+            var filtered = allData.Where(x => (DateTime.UtcNow - x.ExpiresAt).TotalDays >= _daysAfterCleanupIsRequired);
+            await _refreshTokenRepository.DeleteAsync(filtered);
+        }
 
         _logger.LogInformation($"Deleted expired tokens from db which were there for >= {_daysAfterCleanupIsRequired} days");
     }

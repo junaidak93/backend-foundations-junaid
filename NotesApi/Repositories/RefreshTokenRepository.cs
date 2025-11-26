@@ -1,14 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using NotesApi.Data;
+using NotesApi.Helpers;
 using NotesApi.Models;
 
 public class RefreshTokenRepository : IRefreshTokenRepository
 {
     private readonly AppDbContext _context;
+    private readonly int _gracePeriodInMinutes;
 
-    public RefreshTokenRepository(AppDbContext context)
+    public RefreshTokenRepository(AppDbContext context, IConfiguration config)
     {
         _context = context;
+        _ = int.TryParse(config[Constants.KEY_GRACEPERIODINMINUTES], out _gracePeriodInMinutes);
     }
 
     public async Task AddTokenAsync(string token, int userId, string ip, string userAgent, string? oldToken = null)
@@ -76,11 +79,19 @@ public class RefreshTokenRepository : IRefreshTokenRepository
 
     public async Task<bool> RevokeToken(string refreshToken, string ip, string userAgent)
     {
-        var existing = await _context.RefreshTokens.FirstOrDefaultAsync(x => x.Token == refreshToken && x.CreatedByIp == ip && x.UserAgent == userAgent && !x.IsRevoked);
+        var existing = await _context.RefreshTokens.FirstOrDefaultAsync(token => 
+            token.Token == refreshToken && 
+            token.CreatedByIp == ip && 
+            token.UserAgent == userAgent && 
+            (!token.IsRevoked || (DateTime.UtcNow - token.RevokedAt).TotalMinutes <= _gracePeriodInMinutes)
+        );
         
         if (existing == null) 
             return false;
 
+        if (existing.IsRevoked) //Already revoked
+            return true; 
+        
         existing.IsRevoked = true;
         existing.RevokedAt = DateTime.UtcNow;
         existing.RevokedByIp = ip;

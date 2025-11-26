@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Microsoft.AspNetCore.Identity;
 using NotesApi.Helpers;
 using NotesApi.Models;
@@ -9,13 +8,15 @@ public class AuthService : IAuthService
     private readonly IRefreshTokenRepository _refreshTokenRepo;
     private readonly PasswordHasher<User> _passwordHasher;
     private readonly IJwtTokenGenerator _jwt;
+    private readonly IStringHasher _stringHasher;
 
-    public AuthService(IUserRepository repo, IRefreshTokenRepository refreshTokenRepo, IJwtTokenGenerator jwt)
+    public AuthService(IUserRepository repo, IRefreshTokenRepository refreshTokenRepo, IJwtTokenGenerator jwt, IStringHasher stringHasher)
     {
         _repo = repo;
         _refreshTokenRepo = refreshTokenRepo;
         _passwordHasher = new PasswordHasher<User>();
         _jwt = jwt;
+        _stringHasher = stringHasher;
     }
 
     public async Task<User?> Register(string username, string password)
@@ -54,7 +55,7 @@ public class AuthService : IAuthService
         if (int.TryParse(_jwt.ReadUserId(refreshToken) ?? "", out int userId))
         {
             var user = await _repo.GetByIdAsync(userId) ?? throw new ServiceException(ErrorMessages.InvalidUser);
-            string oldHashedToken = refreshToken.ToMD5Hash();
+            string oldHashedToken = _stringHasher.GetSHA256Hash(refreshToken);
 
             if (await _refreshTokenRepo.RevokeToken(oldHashedToken, ip, userAgent))
             {
@@ -79,7 +80,7 @@ public class AuthService : IAuthService
         string refreshToken = _jwt.GenerateToken(user, DateTime.UtcNow.AddDays(30));
 
         // Add Hashed Refresh Token in DB
-        await _refreshTokenRepo.AddTokenAsync(refreshToken.ToMD5Hash(), user.Id, ip, userAgent, oldToken);
+        await _refreshTokenRepo.AddTokenAsync(_stringHasher.GetSHA256Hash(refreshToken), user.Id, ip, userAgent, oldToken);
 
         // Return tokens
         return (token, refreshToken);

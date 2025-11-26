@@ -21,6 +21,7 @@ builder.Services
     .AddScoped<IUserRepository, UserRepository>()
     .AddScoped<IRefreshTokenRepository, RefreshTokenRepository>()
     .AddScoped<IJwtTokenGenerator, JwtTokenGenerator>()
+    .AddScoped<IStringHasher, StringHasher>()
     .AddControllers();
 
 builder.Services.AddAuthentication(Constants.BEARER)

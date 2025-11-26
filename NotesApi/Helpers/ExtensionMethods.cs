@@ -1,15 +1,11 @@
-using System.Security.Cryptography;
 using System.Text;
 
 namespace NotesApi.Helpers;
 
 public static class ExtensionMethods
 {
-    public static string ToMD5Hash(this string input)
+    public static string ToHex(this byte[] data)
     {
-        // Convert the input string to a byte array and compute the hash
-        byte[] data = MD5.HashData(Encoding.UTF8.GetBytes(input));
-
         // Create a new StringBuilder to collect the bytes and create a string
         StringBuilder sBuilder = new();
 
