@@ -3,6 +3,8 @@ using NotesApi.Data;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using NotesApi.Helpers;
+using Microsoft.AspNetCore.Identity;
+using NotesApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +19,8 @@ builder.Services
     .AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString))
     .AddScoped<INotesRepository, NotesRepository>()
     .AddScoped<INotesService, NotesService>()
+    .AddScoped<IAuthPolicy, AuthPolicy>()
+    .AddScoped<IAuthEngine, AuthEngine>()
     .AddScoped<IAuthService, AuthService>()
     .AddScoped<IUserRepository, UserRepository>()
     .AddScoped<IRefreshTokenRepository, RefreshTokenRepository>()
