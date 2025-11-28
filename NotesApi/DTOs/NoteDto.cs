@@ -1,1 +1,0 @@
-public record NoteDto(int Id, string Title, string Body);

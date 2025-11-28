@@ -14,30 +14,27 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         _ = int.TryParse(config[Constants.KEY_GRACEPERIODINMINUTES], out _gracePeriodInMinutes);
     }
 
-    public async Task AddTokenAsync(string token, int userId, string ip, string userAgent, string? oldToken = null)
+    public async Task AddTokenAsync(string token, int userId, string ip, string userAgent)
     {
-        List<Task> tasks = [];
-
-        tasks.Add(CreateAsync(new RefreshToken {
+        await CreateAsync(new RefreshToken
+        {
             Token = token,
             UserId = userId,
             CreatedByIp = ip,
             UserAgent = userAgent,
             ExpiresAt = DateTime.UtcNow.AddDays(30)
-        }));
+        });
+    }
 
-        if (oldToken is not null)
+    public async Task RotateTokenAsync(string token, string oldToken)
+    {
+        var existing = await _context.RefreshTokens.FirstOrDefaultAsync(x => x.Token == oldToken);
+
+        if (existing is not null)
         {
-            var existing = await _context.RefreshTokens.FirstOrDefaultAsync(x => x.Token == oldToken);
-
-            if (existing is not null)
-            {
-                existing.ReplacedByToken = token;
-                tasks.Add(DoUpdateAsync(existing, existing));
-            }
+            existing.ReplacedByToken = token;
+            await _context.SaveChangesAsync();
         }
-
-        await Task.WhenAll(tasks);
     }
 
     public async Task<RefreshToken> CreateAsync(RefreshToken refreshToken)

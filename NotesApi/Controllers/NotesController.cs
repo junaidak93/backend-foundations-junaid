@@ -5,18 +5,13 @@ using NotesApi.Models;
 [Authorize]
 [ApiController]
 [Route("[controller]")]
-public class NotesController : ControllerBase
+public class NotesController(INotesService notesService) : ControllerBase
 {
-    private readonly INotesService _notesService;
-
-    public NotesController(INotesService notesService)
-    {
-        _notesService = notesService;
-    }
+    private readonly INotesService _notesService = notesService;
 
     [HttpGet]
-    public async Task<ActionResult<List<Note>>> GetNotes() {
-        return Ok(await _notesService.GetNotesAsync());
+    public async Task<ActionResult<PaginatedList<Note>>> GetNotes([FromQuery] NoteRequest noteRequest) {
+        return Ok(await _notesService.GetNotesAsync(noteRequest));
     }
 
     [HttpGet("{id}")]

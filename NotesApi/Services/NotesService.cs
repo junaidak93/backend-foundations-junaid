@@ -1,21 +1,41 @@
 using NotesApi.Models;
 
-public class NotesService : INotesService
+public class NotesService(INotesRepository repo, ILogger<NotesService> logger, ICacheService cache) : INotesService
 {
-    private readonly INotesRepository _repo;
-    private readonly ILogger<NotesService> _logger;
-
-    public NotesService(INotesRepository repo, ILogger<NotesService> logger)
-    {
-        _repo = repo;
-        _logger = logger;
-    }
+    private readonly INotesRepository _repo = repo;
+    private readonly ILogger<NotesService> _logger = logger;
+    private readonly ICacheService _cache = cache;
 
     public async Task<List<Note>> GetNotesAsync() => 
         await _repo.GetAllAsync();
 
-    public async Task<Note?> GetNoteAsync(int id) =>
-        await _repo.GetByIdAsync(id);
+    public async Task<PaginatedList<Note>> GetNotesAsync(NoteRequest noteRequest)
+    {
+        string key = $"{nameof(NoteRequest)}.{noteRequest}";
+
+        if (_cache.TryGetValue(key, out PaginatedList<Note>? list) && list != null)
+        {
+            return list;
+        }
+
+        var result = await _repo.GetAllAsync(noteRequest);
+        _cache.Set(key, result);
+        return result;
+    }
+
+    public async Task<Note?> GetNoteAsync(int id)
+    {
+        string key = $"{nameof(Note)}.{id}";
+
+        if (_cache.TryGetValue(key, out Note? note))
+        {
+            return note;
+        }
+
+        var result = await _repo.GetByIdAsync(id);
+        _cache.Set(key, result);
+        return result;
+    }
 
     public async Task<Note> CreateNoteAsync(string title, string body)
     {
@@ -26,15 +46,26 @@ public class NotesService : INotesService
             CreatedAt = DateTime.UtcNow
         };
 
-        return await _repo.CreateAsync(note);
+        Note result = await _repo.CreateAsync(note);
+
+        _cache.Clear();
+        return result;
     }
 
     public async Task<Note?> UpdateNoteAsync(int id, string title, string body)
     {
         var note = new Note { Id = id, Title = title, Body = body };
-        return await _repo.UpdateAsync(note);
+        Note? result = await _repo.UpdateAsync(note);
+
+        _cache.Clear();
+        return result;
     }
 
-    public async Task<bool> DeleteNoteAsync(int id) =>
-        await _repo.DeleteAsync(id);
+    public async Task<bool> DeleteNoteAsync(int id) 
+    {
+        bool result = await _repo.DeleteAsync(id);
+
+        _cache.Clear();
+        return result;
+    }
 }

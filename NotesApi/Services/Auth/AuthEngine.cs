@@ -15,8 +15,11 @@ public class AuthEngine(IJwtTokenGenerator jwt, IRefreshTokenRepository refreshT
     public int ExtractUserIdFromJwt(string token) => 
         int.TryParse(_jwt.ReadUserId(token) ?? "", out int userId) ? userId : 0;
 
-    public async Task PersistToken(string hashedToken, int userId, string ip, string userAgent, string? oldHashedToken = null) => 
-        await _refreshTokenRepo.AddTokenAsync(hashedToken, userId, ip, userAgent, oldHashedToken);
+    public async Task PersistToken(string hashedToken, int userId, string ip, string userAgent) => 
+        await _refreshTokenRepo.AddTokenAsync(hashedToken, userId, ip, userAgent);
+
+    public async Task RotateToken(string hashedToken, string oldHashedToken) => 
+        await _refreshTokenRepo.RotateTokenAsync(hashedToken, oldHashedToken);
 
     public async Task<bool> TryRevokeToken(string hashedToken, string ip, string userAgent) => 
         await _refreshTokenRepo.RevokeToken(hashedToken, ip, userAgent);

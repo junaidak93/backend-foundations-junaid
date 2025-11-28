@@ -68,7 +68,11 @@ public class AuthService(IUserRepository userRepository, IAuthPolicy authPolicy,
         string refreshToken = _authEngine.GenerateRefreshToken(user);
 
         // Add Hashed Refresh Token in DB
-        await _authEngine.PersistToken(_authPolicy.Hash(refreshToken), user.Id, ip, userAgent, oldToken);
+        string hashedToken = _authPolicy.Hash(refreshToken);
+        await _authEngine.PersistToken(hashedToken, user.Id, ip, userAgent);
+
+        if (oldToken != null)
+            await _authEngine.RotateToken(hashedToken, oldToken);
 
         // Return tokens
         return (token, refreshToken);
