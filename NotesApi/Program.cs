@@ -3,8 +3,6 @@ using NotesApi.Data;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using NotesApi.Helpers;
-using Microsoft.AspNetCore.Identity;
-using NotesApi.Models;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 
@@ -52,16 +50,15 @@ builder.Services.AddRateLimiter(limiterOptions =>
     });
 
     // You can also define global policies or policies based on specific criteria (e.g., user, IP)
-    // limiterOptions.AddPolicy("userPolicy", httpContext =>
-    // {
-    //     // Logic to determine a policy based on the user or other request details
-    //     return RateLimitPartition.GetFixedWindowLimiter(httpContext.User.Identity.Name, _ =>
-    //         new FixedWindowRateLimiterOptions
-    //         {
-    //             PermitLimit = 10,
-    //             Window = TimeSpan.FromMinutes(1)
-    //         });
-    // });
+    limiterOptions.AddTokenBucketLimiter(policyName: "token", options =>
+    {
+        options.TokenLimit = options.TokenLimit;
+        options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        options.QueueLimit = options.QueueLimit;
+        options.ReplenishmentPeriod = TimeSpan.FromSeconds(10);
+        options.TokensPerPeriod = options.TokensPerPeriod;
+        options.AutoReplenishment = options.AutoReplenishment;
+    });
 
     limiterOptions.OnRejected = (context, cancellationToken) =>
     {
@@ -72,19 +69,19 @@ builder.Services.AddRateLimiter(limiterOptions =>
 });
 
 builder.Services.AddAuthentication(Constants.BEARER)
-    .AddJwtBearer(Constants.BEARER, options =>
+.AddJwtBearer(Constants.BEARER, options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(jwtKey)
-        };
-    });
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(jwtKey)
+    };
+});
 
 builder.Services.AddAuthorization();
 
@@ -94,5 +91,5 @@ app.MapControllers();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.UseRateLimiter();
 app.Run();
