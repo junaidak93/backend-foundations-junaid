@@ -1,26 +1,21 @@
-using Microsoft.EntityFrameworkCore;
 using NotesApi.Data;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using NotesApi.Helpers;
-using Microsoft.AspNetCore.RateLimiting;
-using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-string? connectionString = builder.Configuration.GetConnectionString(Constants.KEY_CONNECTIONSTRING);
-byte[] jwtKey = Encoding.UTF8.GetBytes(builder.Configuration[Constants.KEY_JWTKEY]!);
-string? jwtIssuer = builder.Configuration[Constants.KEY_JWTISSUER];
-string? jwtAudience = builder.Configuration[Constants.KEY_JWTAUDIENCE];
+DbConfig dbConfig = new(builder.Configuration);
+RateLimiterConfig rateLimiterConfig = new();
+JwtConfig jwtConfig = new(builder.Configuration);
 
 // Add services to the container.
 builder.Services
     .AddHttpContextAccessor()
     .AddTransient(s => s.GetService<IHttpContextAccessor>()!.HttpContext!.User!)
+    .AddRateLimiter(rateLimiterConfig.GetConfig)
     .AddMemoryCache()
     .AddHostedService<TokenCleanupService>()
     .AddScoped<ICacheService, CacheService>()
-    .AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString))
+    .AddDbContext<AppDbContext>(options => dbConfig.GetConfig(options))
     .AddScoped<INotesRepository, NotesRepository>()
     .AddScoped<INotesService, NotesService>()
     .AddScoped<IAuthPolicy, AuthPolicy>()
@@ -32,56 +27,9 @@ builder.Services
     .AddScoped<IStringHasher, StringHasher>()
     .AddControllers();
 
-builder.Services.AddRateLimiter(limiterOptions =>
-{
-    limiterOptions.AddFixedWindowLimiter("fixed", options =>
-    {
-        options.PermitLimit = 5; // Allow 5 requests
-        options.Window = TimeSpan.FromSeconds(10); // Within a 10-second window
-        options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        options.QueueLimit = 2; // Queue up to 2 additional requests
-    });
-
-    limiterOptions.AddConcurrencyLimiter("concurrent", options =>
-    {
-        options.PermitLimit = 3; // Allow 3 concurrent requests
-        options.QueueProcessingOrder = QueueProcessingOrder.NewestFirst;
-        options.QueueLimit = 0; // Don't queue requests
-    });
-
-    // You can also define global policies or policies based on specific criteria (e.g., user, IP)
-    limiterOptions.AddTokenBucketLimiter(policyName: "token", options =>
-    {
-        options.TokenLimit = options.TokenLimit;
-        options.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        options.QueueLimit = options.QueueLimit;
-        options.ReplenishmentPeriod = TimeSpan.FromSeconds(10);
-        options.TokensPerPeriod = options.TokensPerPeriod;
-        options.AutoReplenishment = options.AutoReplenishment;
-    });
-
-    limiterOptions.OnRejected = (context, cancellationToken) =>
-    {
-        // Handle rejected requests (e.g., set status code 429 Too Many Requests)
-        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        return ValueTask.CompletedTask;
-    };
-});
-
-builder.Services.AddAuthentication(Constants.BEARER)
-.AddJwtBearer(Constants.BEARER, options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(jwtKey)
-    };
-});
+builder.Services
+    .AddAuthentication(Constants.BEARER)
+    .AddJwtBearer(Constants.BEARER, jwtConfig.GetConfig);
 
 builder.Services.AddAuthorization();
 

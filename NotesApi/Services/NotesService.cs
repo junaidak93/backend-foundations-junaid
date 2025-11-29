@@ -11,7 +11,7 @@ public class NotesService(INotesRepository repo, ILogger<NotesService> logger, I
 
     public async Task<PaginatedList<Note>> GetNotesAsync(NoteRequest noteRequest)
     {
-        string key = $"{nameof(NoteRequest)}.{noteRequest}";
+        string key = $"{nameof(NoteRequest)}.recent";
 
         if (_cache.TryGetValue(key, out PaginatedList<Note>? list) && list != null)
         {
@@ -48,7 +48,7 @@ public class NotesService(INotesRepository repo, ILogger<NotesService> logger, I
 
         Note result = await _repo.CreateAsync(note);
 
-        _cache.Clear();
+        _cache.Remove($"{nameof(NoteRequest)}.recent");
         return result;
     }
 
@@ -57,7 +57,7 @@ public class NotesService(INotesRepository repo, ILogger<NotesService> logger, I
         var note = new Note { Id = id, Title = title, Body = body };
         Note? result = await _repo.UpdateAsync(note);
 
-        _cache.Clear();
+        _cache.Remove($"{nameof(Note)}.{id}");
         return result;
     }
 
@@ -65,7 +65,7 @@ public class NotesService(INotesRepository repo, ILogger<NotesService> logger, I
     {
         bool result = await _repo.DeleteAsync(id);
 
-        _cache.Clear();
+        _cache.Remove($"{nameof(Note)}.{id}");
         return result;
     }
 }
