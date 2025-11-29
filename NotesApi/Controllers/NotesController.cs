@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using NotesApi.Models;
 
 [Authorize]
@@ -10,11 +11,13 @@ public class NotesController(INotesService notesService) : ControllerBase
     private readonly INotesService _notesService = notesService;
 
     [HttpGet]
+    [DisableRateLimiting]
     public async Task<ActionResult<PaginatedList<Note>>> GetNotes([FromQuery] NoteRequest noteRequest) {
         return Ok(await _notesService.GetNotesAsync(noteRequest));
     }
 
     [HttpGet("{id}")]
+    [DisableRateLimiting]
     public async Task<ActionResult<Note?>> GetNotesById(int id) {
         var note = await _notesService.GetNoteAsync(id);
         return note is null ? NotFound() : Ok(note);
