@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.HttpOverrides;
 using NotesApi.Data;
 using NotesApi.Helpers;
 
@@ -28,9 +27,8 @@ builder.Services
     .AddScoped<IStringHasher, StringHasher>()
     .AddControllers();
 
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-);
+builder.Services
+    .Configure<ForwardedHeadersOptions>(builder.Configuration.GetSection(Constants.KEY_FORWARDEDHEADERS));
 
 builder.Services
     .AddAuthentication(Constants.BEARER)

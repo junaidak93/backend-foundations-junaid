@@ -2,6 +2,7 @@ namespace  NotesApi.Helpers;
 
 public static class Constants 
 {
+    public const string KEY_FORWARDEDHEADERS = "ForwardedHeaders";
     public const string KEY_PAGESIZE = "Paging:PageSize";
     public const string COOKIE_REFRESHTOKEN = "REFRESH_TOKEN";
     public const string KEY_SECRET = "Enc:Secret";
