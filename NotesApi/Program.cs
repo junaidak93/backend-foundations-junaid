@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using NotesApi.Data;
 using NotesApi.Helpers;
 
@@ -27,6 +28,10 @@ builder.Services
     .AddScoped<IStringHasher, StringHasher>()
     .AddControllers();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+);
+
 builder.Services
     .AddAuthentication(Constants.BEARER)
     .AddJwtBearer(Constants.BEARER, jwtConfig.GetConfig);
@@ -37,7 +42,8 @@ var app = builder.Build();
 
 app.MapControllers();
 app.UseHttpsRedirection();
+app.UseForwardedHeaders();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseRateLimiter();
 app.Run();

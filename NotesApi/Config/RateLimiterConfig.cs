@@ -1,9 +1,9 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 
-public class RateLimiterConfig(ILogger<RateLimiterConfig> logger)
+public class RateLimiterConfig()
 {
-    private ILogger<RateLimiterConfig> _logger = logger;
+    private readonly ILogger<RateLimiterConfig> _logger = new LoggerFactory().CreateLogger<RateLimiterConfig>();
 
     public void GetConfig(RateLimiterOptions limiterOptions)
     {
