@@ -11,6 +11,7 @@ JwtConfig jwtConfig = new(builder.Configuration);
 // Add services to the container.
 builder.Services
     .AddHttpContextAccessor()
+    .AddExceptionHandler<AppExceptionHandler>()
     .AddTransient(s => s.GetService<IHttpContextAccessor>()!.HttpContext!.User!)
     .AddRateLimiter(rateLimiterConfig.GetConfig)
     .AddMemoryCache()
@@ -34,17 +35,15 @@ builder.Services
 
 builder.Services
     .Configure<ForwardedHeadersOptions>(builder.Configuration.GetSection(Constants.KEY_FORWARDEDHEADERS))
-    .AddExceptionHandler<AppExceptionHandler>()
     .AddAuthorization();
 
 var app = builder.Build();
-
+app.UseExceptionHandler("/Home/Error");
 app.MapControllers();
-app.UseHttpsRedirection();
 app.UseForwardedHeaders();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseExceptionHandler();
+app.UseHttpsRedirection();
 
 app.Run();
