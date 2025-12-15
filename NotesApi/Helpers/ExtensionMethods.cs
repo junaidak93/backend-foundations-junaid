@@ -1,11 +1,28 @@
 using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion.Internal;
 using NotesApi.Models;
 
 namespace NotesApi.Helpers;
 
 public static class ExtensionMethods
 {
+    public static string ToJson<T>(this T obj) => JsonSerializer.Serialize(obj);
+
+    public static T? FromJson<T>(this string json) => JsonSerializer.Deserialize<T>(json);
+
+    public static ProblemDetails ToProblemDetails(this ServiceException exception)
+    {
+        return new ProblemDetails
+        {
+            Status = exception.StatusCode ?? (int?)ServiceErrors.ServerError.StatusCode,
+            Title = exception.Title ?? ServiceErrors.ServerError.Title,
+            Detail = exception.Message
+        };
+    }
+
     public static string ToHex(this byte[] data)
     {
         // Create a new StringBuilder to collect the bytes and create a string

@@ -1,4 +1,5 @@
 using NotesApi.Data;
+using NotesApi.ExceptionHandlers;
 using NotesApi.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,13 +29,13 @@ builder.Services
     .AddControllers();
 
 builder.Services
-    .Configure<ForwardedHeadersOptions>(builder.Configuration.GetSection(Constants.KEY_FORWARDEDHEADERS));
-
-builder.Services
     .AddAuthentication(Constants.BEARER)
     .AddJwtBearer(Constants.BEARER, jwtConfig.GetConfig);
 
-builder.Services.AddAuthorization();
+builder.Services
+    .Configure<ForwardedHeadersOptions>(builder.Configuration.GetSection(Constants.KEY_FORWARDEDHEADERS))
+    .AddExceptionHandler<AppExceptionHandler>()
+    .AddAuthorization();
 
 var app = builder.Build();
 
@@ -44,4 +45,6 @@ app.UseForwardedHeaders();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseExceptionHandler();
+
 app.Run();

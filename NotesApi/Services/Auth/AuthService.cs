@@ -42,7 +42,7 @@ public class AuthService(IUserRepository userRepository, IAuthPolicy authPolicy,
 
         if (userId > 0)
         {
-            var user = await _userRepository.GetByIdAsync(userId) ?? throw new ServiceException(ErrorMessages.InvalidUser);
+            var user = await _userRepository.GetByIdAsync(userId) ?? throw new ServiceException(ServiceErrors.InvalidUser);
             string oldHashedToken = _authPolicy.Hash(refreshToken);
 
             if (await _authEngine.TryRevokeToken(oldHashedToken, ip, userAgent))
@@ -54,11 +54,11 @@ public class AuthService(IUserRepository userRepository, IAuthPolicy authPolicy,
             {
                 //Revoke all tokens of this user
                 await _authEngine.RevokeAllTokens(user.Id, ip);
-                throw new ServiceException(ErrorMessages.AllSessionsKilled);
+                throw new ServiceException(ServiceErrors.AllSessionsKilled);
             }
         }
 
-        throw new ServiceException(ErrorMessages.InvalidToken);
+        throw new ServiceException(ServiceErrors.InvalidToken);
     }
 
     private async Task<(string token, string refreshToken)> CreateTokens(User user, string ip, string userAgent, string? oldToken = null)

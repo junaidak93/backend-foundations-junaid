@@ -1,3 +1,4 @@
+using NotesApi.Helpers;
 using NotesApi.Models;
 
 public class NotesService(INotesRepository repo, ILogger<NotesService> logger, ICacheService cache) : INotesService
@@ -32,7 +33,7 @@ public class NotesService(INotesRepository repo, ILogger<NotesService> logger, I
             return note;
         }
 
-        var result = await _repo.GetByIdAsync(id);
+        var result = await _repo.GetByIdAsync(id) ?? throw new ServiceException(ServiceErrors.NoteNotFound);
         _cache.Set(key, result);
         return result;
     }
